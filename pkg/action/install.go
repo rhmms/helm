@@ -19,6 +19,7 @@ package action
 import (
 	"bytes"
 	"fmt"
+	"bufio"
 	"io/ioutil"
 	"os"
 	"path"
@@ -428,6 +429,24 @@ func (c *Configuration) renderResources(ch *chart.Chart, values chartutil.Values
 	if err != nil {
 		return hs, b, "", err
 	}
+
+	// If the template is broken and generates non yaml files (e.g. by skipping line endings etc)
+	// you get an error message by that there is an error in line xxx of the file deployment.yaml.
+	// However the line number is the line number of the generated yaml "text" after the template
+	// engine, which is rather stupid and does not know yaml at all. Debugging those issues
+	// is hard, therefore we print the rendered templates with line numbers in debug mode.
+	c.Log("Result after template processor\n--------------")
+	for fName, f := range files {
+		scanner := bufio.NewScanner(strings.NewReader(f))
+		scanner.Split(bufio.ScanLines)
+		c.Log(fmt.Sprintf("#Source:%s\n---", fName))
+		count := 0
+		for scanner.Scan() {
+			count++
+			c.Log(fmt.Sprintf("%d\t%s",count,scanner.Text()))
+		}
+	}
+
 
 	// NOTES.txt gets rendered like all the other files, but because it's not a hook nor a resource,
 	// pull it out of here into a separate file so that we can actually use the output of the rendered
